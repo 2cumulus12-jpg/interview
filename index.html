@@ -44,7 +44,6 @@
         }
         .noti-btn:hover { background-color: #2563eb; }
 
-        /* 입력 폼 그리드 */
         .form-card {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -79,7 +78,6 @@
         }
         .add-btn:hover { background: #334155; }
 
-        /* 테이블 영역 */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -144,7 +142,8 @@
         </div>
         <div class="form-group">
             <label>면접 일시</label>
-            <input type="datetime-local" id="candTime">
+            <!-- 5분 단위 설정: step="300" (300초 = 5분) -->
+            <input type="datetime-local" id="candTime" step="300">
         </div>
         <button class="add-btn" onclick="addInterview()">등록</button>
     </div>
@@ -161,16 +160,13 @@
                 <th>관리</th>
             </tr>
         </thead>
-        <tbody id="interviewList">
-            <!-- 자바스크립트 렌더링 영역 -->
-        </tbody>
+        <tbody id="interviewList"></tbody>
     </table>
 </div>
 
 <script>
     let interviews = JSON.parse(localStorage.getItem('interviews') || '[]');
 
-    // 브라우저 권한 요청
     function requestNotification() {
         if (!("Notification" in window)) {
             alert("사용 중인 브라우저는 알림 기능을 지원하지 않습니다.");
@@ -185,7 +181,6 @@
         });
     }
 
-    // 알림 비프음 재생
     function playBeep() {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -200,7 +195,6 @@
         }
     }
 
-    // 면접 추가
     function addInterview() {
         const name = document.getElementById('candName').value.trim();
         const phone = document.getElementById('candPhone').value.trim();
@@ -222,7 +216,6 @@
         };
 
         interviews.push(item);
-        // 면접 시간순 정렬
         interviews.sort((a, b) => a.time - b.time);
         saveAndRender();
 
@@ -232,7 +225,6 @@
         document.getElementById('candTime').value = '';
     }
 
-    // 삭제
     function deleteInterview(id) {
         interviews = interviews.filter(item => item.id !== id);
         saveAndRender();
@@ -279,7 +271,6 @@
         });
     }
 
-    // 10초마다 30분 전 조건 체크
     function checkReminders() {
         const now = Date.now();
         let updated = false;
@@ -287,7 +278,6 @@
         interviews.forEach(item => {
             const diffMin = (item.time - now) / (1000 * 60);
 
-            // 30분 이하로 남았고, 아직 알림을 띄우지 않은 경우
             if (diffMin <= 30 && diffMin > 0 && !item.notified) {
                 item.notified = true;
                 updated = true;
@@ -305,17 +295,11 @@
             }
         });
 
-        if (updated) {
-            saveAndRender();
-        } else {
-            // 시간 경과 뱃지 갱신용 렌더
-            saveAndRender();
-        }
+        saveAndRender();
     }
 
-    // 초기 실행 및 타이머 설정
     saveAndRender();
-    setInterval(checkReminders, 10000); // 10초 주기 확인
+    setInterval(checkReminders, 10000);
 </script>
 </body>
 </html>
