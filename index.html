@@ -167,11 +167,11 @@
     <div class="form-card">
         <div class="form-group">
             <label>면접자 이름</label>
-            <input type="text" id="candName" placeholder="예: 김지원">
+            <input type="text" id="candName" placeholder="예: (김지원) / 지원자">
         </div>
         <div class="form-group">
             <label>연락처</label>
-            <input type="text" id="candPhone" placeholder="예: 010-1234-5678">
+            <input type="text" id="candPhone" placeholder="예: 010 1234 5678">
         </div>
         <div class="form-group">
             <label>지원 직무 / 비고</label>
@@ -212,7 +212,32 @@
 
 <script>
     let interviews = JSON.parse(localStorage.getItem('interviews') || '[]');
-    let editTargetId = null; // 현재 수정 중인 항목의 ID
+    let editTargetId = null;
+
+    // 이름 입력값 정제 (불필요한 괄호, 따옴표, 특수기호 제거)
+    function sanitizeName(raw) {
+        if (!raw) return '';
+        return raw.replace(/[\(\)\[\]\{\}"'“”‘’<>\/\\_~*+]/g, '').replace(/\s{2,}/g, ' ').trim();
+    }
+
+    // 전화번호 정제 (숫자만 추출하여 010-XXXX-XXXX 형태로 자동 하이픈 포맷팅)
+    function formatPhoneNumber(raw) {
+        if (!raw) return '-';
+        const nums = raw.replace(/\D/g, ''); // 숫자만 남기기
+        
+        if (nums.length === 11) {
+            return nums.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+        } else if (nums.length === 10) {
+            if (nums.startsWith('02')) {
+                return nums.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3');
+            }
+            return nums.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+        } else if (nums.length === 9) {
+            return nums.replace(/(\d{2})(\d{3})(\d{4})/, '$1-$2-$3');
+        }
+        
+        return raw.trim() || '-';
+    }
 
     function initTimeSelects() {
         const hourSelect = document.getElementById('candHour');
@@ -274,11 +299,10 @@
         } catch (e) {}
     }
 
-    // 등록 또는 수정 저장
     function handleSubmit() {
-        const name = document.getElementById('candName').value.trim();
-        const phone = document.getElementById('candPhone').value.trim();
-        const role = document.getElementById('candRole').value.trim();
+        let name = sanitizeName(document.getElementById('candName').value);
+        let phone = formatPhoneNumber(document.getElementById('candPhone').value);
+        let role = document.getElementById('candRole').value.trim();
         const dateStr = document.getElementById('candDate').value;
         const hour = document.getElementById('candHour').value;
         const minute = document.getElementById('candMinute').value;
@@ -292,13 +316,11 @@
         const timeVal = new Date(fullTimeStr).getTime();
 
         if (editTargetId !== null) {
-            // 수정 모드
             const target = interviews.find(item => item.id === editTargetId);
             if (target) {
                 target.name = name;
                 target.phone = phone;
                 target.role = role;
-                // 시간이 바뀌었으면 알림 상태를 초기화(새 시간 기준 30분 전 알림 가능하도록)
                 if (target.time !== timeVal) {
                     target.time = timeVal;
                     target.notified = false;
@@ -306,7 +328,6 @@
             }
             cancelEdit();
         } else {
-            // 신규 등록 모드
             const item = {
                 id: Date.now(),
                 name,
@@ -323,16 +344,14 @@
         saveAndRender();
     }
 
-    // 수정 모드 진입
     function editInterview(id) {
         const target = interviews.find(item => item.id === id);
         if (!target) return;
 
         editTargetId = id;
 
-        // 폼에 기존 값 채우기
         document.getElementById('candName').value = target.name;
-        document.getElementById('candPhone').value = target.phone;
+        document.getElementById('candPhone').value = target.phone === '-' ? '' : target.phone;
         document.getElementById('candRole').value = target.role;
 
         const d = new Date(target.time);
@@ -343,22 +362,18 @@
 
         document.getElementById('candHour').value = String(d.getHours()).padStart(2, '0');
         
-        // 5분 단위에 맞게 보정하여 세팅
         let min = Math.round(d.getMinutes() / 5) * 5;
         if (min >= 60) min = 55;
         document.getElementById('candMinute').value = String(min).padStart(2, '0');
 
-        // 버튼 전환
         const submitBtn = document.getElementById('submitBtn');
         submitBtn.innerText = "수정 완료";
         submitBtn.style.backgroundColor = "#2563eb";
         document.getElementById('cancelBtn').style.display = "inline-block";
 
-        // 입력창으로 부드럽게 스크롤
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // 수정 취소
     function cancelEdit() {
         editTargetId = null;
         clearInputs();
