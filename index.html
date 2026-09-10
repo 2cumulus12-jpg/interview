@@ -57,19 +57,24 @@
         }
         .form-group { display: flex; flex-direction: column; gap: 6px; }
         .form-group label { font-size: 0.85rem; font-weight: 700; color: #475569; }
-        .form-group input {
+        .form-group input, .form-group select {
             padding: 10px 12px;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             font-size: 0.9rem;
             outline: none;
+            background: white;
+            height: 42px;
         }
-        .form-group input:focus { border-color: #3b82f6; }
+        .form-group input:focus, .form-group select:focus { border-color: #3b82f6; }
+        .time-select-wrap { display: flex; gap: 6px; }
+        .time-select-wrap select { flex: 1; }
+
         .add-btn {
             background: #0f172a;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 0 24px;
             border-radius: 6px;
             font-weight: bold;
             cursor: pointer;
@@ -101,9 +106,7 @@
         .badge-alert { background: #fee2e2; color: #b91c1c; animation: blink 1s infinite; }
         .badge-done { background: #f1f5f9; color: #64748b; }
 
-        @keyframes blink {
-            50% { opacity: 0.5; }
-        }
+        @keyframes blink { 50% { opacity: 0.5; } }
 
         .del-btn {
             background: transparent;
@@ -141,9 +144,15 @@
             <input type="text" id="candRole" placeholder="예: 연구기획 / 1차 면접">
         </div>
         <div class="form-group">
-            <label>면접 일시</label>
-            <!-- 5분 단위 설정: step="300" (300초 = 5분) -->
-            <input type="datetime-local" id="candTime" step="300">
+            <label>면접 날짜</label>
+            <input type="date" id="candDate">
+        </div>
+        <div class="form-group">
+            <label>면접 시간 (5분 단위)</label>
+            <div class="time-select-wrap">
+                <select id="candHour"></select>
+                <select id="candMinute"></select>
+            </div>
         </div>
         <button class="add-btn" onclick="addInterview()">등록</button>
     </div>
@@ -166,6 +175,34 @@
 
 <script>
     let interviews = JSON.parse(localStorage.getItem('interviews') || '[]');
+
+    // 시/분 드롭다운 옵션 자동 채우기
+    function initTimeSelects() {
+        const hourSelect = document.getElementById('candHour');
+        const minuteSelect = document.getElementById('candMinute');
+
+        for (let h = 8; h <= 21; h++) {
+            const val = String(h).padStart(2, '0');
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.innerText = val + '시';
+            if (h === 14) opt.selected = true; // 기본값 14시
+            hourSelect.appendChild(opt);
+        }
+
+        // 5분 단위 설정 (00, 05, 10, 15 ... 55)
+        for (let m = 0; m < 60; m += 5) {
+            const val = String(m).padStart(2, '0');
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.innerText = val + '분';
+            minuteSelect.appendChild(opt);
+        }
+
+        // 날짜 기본값을 오늘 날짜로 설정
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('candDate').value = today;
+    }
 
     function requestNotification() {
         if (!("Notification" in window)) {
@@ -199,19 +236,24 @@
         const name = document.getElementById('candName').value.trim();
         const phone = document.getElementById('candPhone').value.trim();
         const role = document.getElementById('candRole').value.trim();
-        const timeStr = document.getElementById('candTime').value;
+        const dateStr = document.getElementById('candDate').value;
+        const hour = document.getElementById('candHour').value;
+        const minute = document.getElementById('candMinute').value;
 
-        if (!name || !timeStr) {
-            alert("이름과 면접 일시는 필수로 입력해야 합니다.");
+        if (!name || !dateStr) {
+            alert("이름과 면접 날짜는 필수로 입력해야 합니다.");
             return;
         }
+
+        const fullTimeStr = `${dateStr}T${hour}:${minute}:00`;
+        const timeVal = new Date(fullTimeStr).getTime();
 
         const item = {
             id: Date.now(),
             name,
             phone,
             role,
-            time: new Date(timeStr).getTime(),
+            time: timeVal,
             notified: false
         };
 
@@ -222,7 +264,6 @@
         document.getElementById('candName').value = '';
         document.getElementById('candPhone').value = '';
         document.getElementById('candRole').value = '';
-        document.getElementById('candTime').value = '';
     }
 
     function deleteInterview(id) {
@@ -298,6 +339,7 @@
         saveAndRender();
     }
 
+    initTimeSelects();
     saveAndRender();
     setInterval(checkReminders, 10000);
 </script>
