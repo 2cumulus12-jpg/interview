@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>면접 관리 & 사전 알림 툴</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+            background-color: #f1f5f9;
+            color: #1e293b;
+            padding: 30px 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 960px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+            padding: 32px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .header h1 { font-size: 1.5rem; color: #0f172a; }
+        .noti-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .noti-btn:hover { background-color: #2563eb; }
+
+        /* 입력 폼 그리드 */
+        .form-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) auto;
+            gap: 12px;
+            align-items: end;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 0.85rem; font-weight: 700; color: #475569; }
+        .form-group input {
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .form-group input:focus { border-color: #3b82f6; }
+        .add-btn {
+            background: #0f172a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            height: 42px;
+            transition: 0.2s;
+        }
+        .add-btn:hover { background: #334155; }
+
+        /* 테이블 영역 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+        }
+        th { background: #f8fafc; color: #475569; font-weight: 700; }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .badge-wait { background: #e0f2fe; color: #0369a1; }
+        .badge-alert { background: #fee2e2; color: #b91c1c; animation: blink 1s infinite; }
+        .badge-done { background: #f1f5f9; color: #64748b; }
+
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+
+        .del-btn {
+            background: transparent;
+            border: 1px solid #cbd5e1;
+            color: #ef4444;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .del-btn:hover { background: #fee2e2; border-color: #ef4444; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🗓️ 면접 일정 & 30분 전 알림 관리</h1>
+        <button class="noti-btn" onclick="requestNotification()">🔔 브라우저 알림 활성화</button>
+    </div>
+
+    <!-- 면접 일정 입력 폼 -->
+    <div class="form-card">
+        <div class="form-group">
+            <label>면접자 이름</label>
+            <input type="text" id="candName" placeholder="예: 김지원">
+        </div>
+        <div class="form-group">
+            <label>연락처</label>
+            <input type="text" id="candPhone" placeholder="예: 010-1234-5678">
+        </div>
+        <div class="form-group">
+            <label>지원 직무 / 비고</label>
+            <input type="text" id="candRole" placeholder="예: 연구기획 / 1차 면접">
+        </div>
+        <div class="form-group">
+            <label>면접 일시</label>
+            <input type="datetime-local" id="candTime">
+        </div>
+        <button class="add-btn" onclick="addInterview()">등록</button>
+    </div>
+
+    <!-- 면접 리스트 테이블 -->
+    <table>
+        <thead>
+            <tr>
+                <th>면접자</th>
+                <th>연락처</th>
+                <th>직무 / 비고</th>
+                <th>면접 일시</th>
+                <th>알림 상태</th>
+                <th>관리</th>
+            </tr>
+        </thead>
+        <tbody id="interviewList">
+            <!-- 자바스크립트 렌더링 영역 -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    let interviews = JSON.parse(localStorage.getItem('interviews') || '[]');
+
+    // 브라우저 권한 요청
+    function requestNotification() {
+        if (!("Notification" in window)) {
+            alert("사용 중인 브라우저는 알림 기능을 지원하지 않습니다.");
+            return;
+        }
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                alert("알림이 활성화되었습니다! 면접 30분 전에 팝업이 울립니다.");
+            } else {
+                alert("알림 권한이 차단되어 있습니다. 주소창 좌측 설정에서 허용해 주세요.");
+            }
+        });
+    }
+
+    // 알림 비프음 재생
+    function playBeep() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // 면접 추가
+    function addInterview() {
+        const name = document.getElementById('candName').value.trim();
+        const phone = document.getElementById('candPhone').value.trim();
+        const role = document.getElementById('candRole').value.trim();
+        const timeStr = document.getElementById('candTime').value;
+
+        if (!name || !timeStr) {
+            alert("이름과 면접 일시는 필수로 입력해야 합니다.");
+            return;
+        }
+
+        const item = {
+            id: Date.now(),
+            name,
+            phone,
+            role,
+            time: new Date(timeStr).getTime(),
+            notified: false
+        };
+
+        interviews.push(item);
+        // 면접 시간순 정렬
+        interviews.sort((a, b) => a.time - b.time);
+        saveAndRender();
+
+        document.getElementById('candName').value = '';
+        document.getElementById('candPhone').value = '';
+        document.getElementById('candRole').value = '';
+        document.getElementById('candTime').value = '';
+    }
+
+    // 삭제
+    function deleteInterview(id) {
+        interviews = interviews.filter(item => item.id !== id);
+        saveAndRender();
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('interviews', JSON.stringify(interviews));
+        const tbody = document.getElementById('interviewList');
+        tbody.innerHTML = '';
+
+        if (interviews.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 24px;">등록된 면접 일정이 없습니다.</td></tr>';
+            return;
+        }
+
+        const now = Date.now();
+
+        interviews.forEach(item => {
+            const diffMin = Math.round((item.time - now) / (1000 * 60));
+            const dateObj = new Date(item.time);
+            const dateString = dateObj.toLocaleString('ko-KR', { 
+                month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+            });
+
+            let statusBadge = '';
+            if (diffMin <= 0) {
+                statusBadge = '<span class="badge badge-done">면접 진행/종료</span>';
+            } else if (diffMin <= 30) {
+                statusBadge = `<span class="badge badge-alert">⚠️ 연락 필요 (${diffMin}분 전)</span>`;
+            } else {
+                statusBadge = `<span class="badge badge-wait">${diffMin}분 남음</span>`;
+            }
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${item.name}</strong></td>
+                <td>${item.phone || '-'}</td>
+                <td>${item.role || '-'}</td>
+                <td>${dateString}</td>
+                <td>${statusBadge}</td>
+                <td><button class="del-btn" onclick="deleteInterview(${item.id})">삭제</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // 10초마다 30분 전 조건 체크
+    function checkReminders() {
+        const now = Date.now();
+        let updated = false;
+
+        interviews.forEach(item => {
+            const diffMin = (item.time - now) / (1000 * 60);
+
+            // 30분 이하로 남았고, 아직 알림을 띄우지 않은 경우
+            if (diffMin <= 30 && diffMin > 0 && !item.notified) {
+                item.notified = true;
+                updated = true;
+
+                playBeep();
+
+                if (Notification.permission === "granted") {
+                    new Notification("🔔 [면접 30분 전 알림]", {
+                        body: `${item.name}님 면접이 30분 남았습니다.\n연락처: ${item.phone || '없음'}\n지금 연락을 진행해 주세요!`,
+                        icon: "https://cdn-icons-png.flaticon.com/512/3652/3652191.png"
+                    });
+                } else {
+                    alert(`[면접 30분 전 알림]\n${item.name}님(${item.phone}) 면접이 30분 남았습니다!`);
+                }
+            }
+        });
+
+        if (updated) {
+            saveAndRender();
+        } else {
+            // 시간 경과 뱃지 갱신용 렌더
+            saveAndRender();
+        }
+    }
+
+    // 초기 실행 및 타이머 설정
+    saveAndRender();
+    setInterval(checkReminders, 10000); // 10초 주기 확인
+</script>
+</body>
+</html>
