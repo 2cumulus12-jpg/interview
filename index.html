@@ -29,20 +29,35 @@
             margin-bottom: 24px;
             padding-bottom: 16px;
             border-bottom: 2px solid #e2e8f0;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .header h1 { font-size: 1.5rem; color: #0f172a; }
+        .btn-group { display: flex; gap: 8px; }
         .noti-btn {
             background-color: #3b82f6;
             color: white;
             border: none;
-            padding: 10px 18px;
+            padding: 10px 16px;
             border-radius: 8px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: bold;
             cursor: pointer;
             transition: 0.2s;
         }
         .noti-btn:hover { background-color: #2563eb; }
+        .test-btn {
+            background-color: #64748b;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .test-btn:hover { background-color: #475569; }
 
         .form-card {
             background: #f8fafc;
@@ -70,10 +85,7 @@
         .time-select-wrap { display: flex; gap: 6px; }
         .time-select-wrap select { flex: 1; }
 
-        .form-actions {
-            display: flex;
-            gap: 6px;
-        }
+        .form-actions { display: flex; gap: 6px; }
         .add-btn {
             background: #0f172a;
             color: white;
@@ -114,6 +126,10 @@
             font-size: 0.9rem;
         }
         th { background: #f8fafc; color: #475569; font-weight: 700; }
+        tr.done-row {
+            background-color: #f8fafc;
+            opacity: 0.65;
+        }
         .badge {
             display: inline-block;
             padding: 4px 8px;
@@ -123,14 +139,11 @@
         }
         .badge-wait { background: #e0f2fe; color: #0369a1; }
         .badge-alert { background: #fee2e2; color: #b91c1c; animation: blink 1s infinite; }
-        .badge-done { background: #f1f5f9; color: #64748b; }
+        .badge-done { background: #e2e8f0; color: #64748b; }
 
         @keyframes blink { 50% { opacity: 0.5; } }
 
-        .table-btn-group {
-            display: flex;
-            gap: 6px;
-        }
+        .table-btn-group { display: flex; gap: 6px; }
         .edit-btn {
             background: #f1f5f9;
             border: 1px solid #cbd5e1;
@@ -160,14 +173,17 @@
 <div class="container">
     <div class="header">
         <h1>🗓️ 면접 일정 & 30분 전 알림 관리</h1>
-        <button class="noti-btn" onclick="requestNotification()">🔔 브라우저 알림 활성화</button>
+        <div class="btn-group">
+            <button class="test-btn" onclick="testNotification()">🔔 알림 테스트</button>
+            <button class="noti-btn" onclick="requestNotification()">권한 허용</button>
+        </div>
     </div>
 
     <!-- 면접 일정 입력 폼 -->
     <div class="form-card">
         <div class="form-group">
             <label>면접자 이름</label>
-            <input type="text" id="candName" placeholder="예: (김지원) / 지원자">
+            <input type="text" id="candName" placeholder="예: (김지원)">
         </div>
         <div class="form-group">
             <label>연락처</label>
@@ -214,17 +230,14 @@
     let interviews = JSON.parse(localStorage.getItem('interviews') || '[]');
     let editTargetId = null;
 
-    // 이름 입력값 정제 (불필요한 괄호, 따옴표, 특수기호 제거)
     function sanitizeName(raw) {
         if (!raw) return '';
         return raw.replace(/[\(\)\[\]\{\}"'“”‘’<>\/\\_~*+]/g, '').replace(/\s{2,}/g, ' ').trim();
     }
 
-    // 전화번호 정제 (숫자만 추출하여 010-XXXX-XXXX 형태로 자동 하이픈 포맷팅)
     function formatPhoneNumber(raw) {
         if (!raw) return '-';
-        const nums = raw.replace(/\D/g, ''); // 숫자만 남기기
-        
+        const nums = raw.replace(/\D/g, '');
         if (nums.length === 11) {
             return nums.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
         } else if (nums.length === 10) {
@@ -235,7 +248,6 @@
         } else if (nums.length === 9) {
             return nums.replace(/(\d{2})(\d{3})(\d{4})/, '$1-$2-$3');
         }
-        
         return raw.trim() || '-';
     }
 
@@ -280,11 +292,24 @@
         }
         Notification.requestPermission().then(permission => {
             if (permission === "granted") {
-                alert("알림이 활성화되었습니다! 면접 30분 전에 팝업이 울립니다.");
+                alert("알림 권한이 허용되었습니다! 우측 상단 '알림 테스트'를 눌러 테스트해 보세요.");
             } else {
-                alert("알림 권한이 차단되어 있습니다. 주소창 좌측 설정에서 허용해 주세요.");
+                alert("알림 권한이 차단되어 있습니다. 브라우저 주소창 좌측 자물쇠(설정) 아이콘을 눌러 알림을 '허용'해 주세요.");
             }
         });
+    }
+
+    // 알림 테스트 버튼용 함수
+    function testNotification() {
+        playBeep();
+        if (Notification.permission === "granted") {
+            new Notification("🔔 알림 테스트 성공!", {
+                body: "컴퓨터 알림이 정상적으로 수신됩니다. 면접 30분 전에도 이렇게 알림이 뜹니다.",
+                icon: "https://cdn-icons-png.flaticon.com/512/3652/3652191.png"
+            });
+        } else {
+            alert("알림 권한이 허용되지 않았습니다. 옆의 [권한 허용] 버튼을 먼저 눌러주세요!");
+        }
     }
 
     function playBeep() {
@@ -340,7 +365,6 @@
             clearInputs();
         }
 
-        interviews.sort((a, b) => a.time - b.time);
         saveAndRender();
     }
 
@@ -398,6 +422,18 @@
     }
 
     function saveAndRender() {
+        const now = Date.now();
+
+        // ★ 예정인 사람(위쪽) vs 이미 지난 사람(아래쪽) 분리 정렬
+        interviews.sort((a, b) => {
+            const isADone = (a.time - now) <= 0;
+            const isBDone = (b.time - now) <= 0;
+
+            if (isADone && !isBDone) return 1;  // A가 완료면 아래로
+            if (!isADone && isBDone) return -1; // B가 완료면 아래로
+            return a.time - b.time;             // 둘 다 같은 상태면 시간순 정렬
+        });
+
         localStorage.setItem('interviews', JSON.stringify(interviews));
         const tbody = document.getElementById('interviewList');
         tbody.innerHTML = '';
@@ -407,8 +443,6 @@
             return;
         }
 
-        const now = Date.now();
-
         interviews.forEach(item => {
             const diffMin = Math.round((item.time - now) / (1000 * 60));
             const dateObj = new Date(item.time);
@@ -417,8 +451,11 @@
             });
 
             let statusBadge = '';
+            let rowClass = '';
+
             if (diffMin <= 0) {
-                statusBadge = '<span class="badge badge-done">면접 진행/종료</span>';
+                statusBadge = '<span class="badge badge-done">면접 완료</span>';
+                rowClass = 'done-row';
             } else if (diffMin <= 30) {
                 statusBadge = `<span class="badge badge-alert">⚠️ 연락 필요 (${diffMin}분 전)</span>`;
             } else {
@@ -426,6 +463,7 @@
             }
 
             const tr = document.createElement('tr');
+            if (rowClass) tr.className = rowClass;
             tr.innerHTML = `
                 <td><strong>${item.name}</strong></td>
                 <td>${item.phone || '-'}</td>
@@ -450,6 +488,7 @@
         interviews.forEach(item => {
             const diffMin = (item.time - now) / (1000 * 60);
 
+            // 30분 이하로 남았고 아직 면접 시간이 안 지났으며, 알림을 보낸 적 없는 경우
             if (diffMin <= 30 && diffMin > 0 && !item.notified) {
                 item.notified = true;
                 updated = true;
@@ -459,7 +498,8 @@
                 if (Notification.permission === "granted") {
                     new Notification("🔔 [면접 30분 전 알림]", {
                         body: `${item.name}님 면접이 30분 남았습니다.\n연락처: ${item.phone || '없음'}\n지금 연락을 진행해 주세요!`,
-                        icon: "https://cdn-icons-png.flaticon.com/512/3652/3652191.png"
+                        icon: "https://cdn-icons-png.flaticon.com/512/3652/3652191.png",
+                        requireInteraction: true // 사용자가 직접 닫을 때까지 화면에 유지
                     });
                 } else {
                     alert(`[면접 30분 전 알림]\n${item.name}님(${item.phone}) 면접이 30분 남았습니다!`);
